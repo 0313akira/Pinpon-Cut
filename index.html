@@ -22,7 +22,7 @@ h2{font-size:17px;margin:0 0 10px}
 .pick input{display:none}
 #editor{display:none}
 video{width:100%;max-height:60vh;background:#000;border-radius:8px;display:block}
-.bar{position:relative;height:28px;background:var(--bg);border-radius:6px;margin:8px 0;cursor:pointer;overflow:hidden;border:1px solid var(--line)}
+.bar{touch-action:none;position:relative;height:36px;background:var(--bg);border-radius:6px;margin:8px 0;cursor:pointer;overflow:hidden;border:1px solid var(--line)}
 .bar .seg{position:absolute;top:0;bottom:0;background:var(--gold);opacity:.85}
 .bar .live{position:absolute;top:0;bottom:0;background:var(--red);opacity:.6}
 .bar .head{position:absolute;top:0;bottom:0;width:2px;background:var(--green)}
@@ -70,8 +70,11 @@ footer{text-align:center;color:var(--sub);font-size:12px;padding:16px}
         <button id="undo">↩ 1つ前を取り消す (Z)</button>
         <button id="playRallies">▶ ラリーだけ再生</button>
       </div>
+      <div class="row"><label class="num">操作方式
+        <select id="mode"><option value="hold">押しっぱなし</option><option value="tap">タップで開始／終了</option></select></label></div>
       <button id="hold">🏓 ラリー中は押しっぱなし（スペースキー）</button>
-      <p class="hint">動画を再生しながら、ラリーが始まったら押す → 点が決まったら離す。←→キーでラリー間を移動できます。</p>
+      <p class="hint" id="modeHint"></p>
+      <p class="hint">上のバーでも編集できます：空いている所をドラッグで区間を作る／区間の端をドラッグで調整／タップでその位置へ移動。←→キーでラリー間を移動。</p>
     </section>
 
     <section class="card">
@@ -144,7 +147,7 @@ byId("resume").onclick = () => {
 function handleHoldStart() {
   if (holdStart !== null || !video.src) return;
   holdStart = video.currentTime;
-  byId("hold").classList.add("on");
+  updateHoldLabel();
   if (video.paused) video.play();
   render();
 }
@@ -152,7 +155,7 @@ function handleHoldEnd() {
   if (holdStart === null) return;
   const a = holdStart, b = video.currentTime;
   holdStart = null;
-  byId("hold").classList.remove("on");
+  updateHoldLabel();
   if (Math.abs(b - a) >= 0.3) {
     const m = { id: nextId++, start: Math.min(a, b), end: Math.max(a, b) };
     marks.push(m);
@@ -203,6 +206,7 @@ function render() {
   };
   marks.forEach(m => put(m.start, m.end, "seg"));
   if (holdStart !== null) put(Math.min(holdStart, video.currentTime), Math.max(holdStart, video.currentTime), "live");
+  if (drag && drag.kind === "new" && drag.moved) put(Math.min(drag.anchor, drag.cur), Math.max(drag.anchor, drag.cur), "live");
 
   const list = byId("list"); list.innerHTML = "";
   marks.forEach((m, i) => {
@@ -230,23 +234,81 @@ function updateHead() {
 }
 video.addEventListener("timeupdate", updateHead);
 video.addEventListener("loadedmetadata", render);
-byId("bar").addEventListener("click", e => {
-  const r = e.currentTarget.getBoundingClientRect();
-  video.currentTime = (e.clientX - r.left) / r.width * (video.duration || 0);
+// バー上のドラッグ編集：空きをドラッグ＝新しい区間／端をドラッグ＝調整／タップ＝移動
+let drag = null;
+const barEl = byId("bar");
+const barTime = e => { const r = barEl.getBoundingClientRect(); return Math.min(video.duration, Math.max(0, (e.clientX - r.left) / r.width * video.duration)); };
+barEl.addEventListener("pointerdown", e => {
+  if (!video.duration) return;
+  e.preventDefault(); barEl.setPointerCapture(e.pointerId);
+  const t = barTime(e), tol = 10 / barEl.getBoundingClientRect().width * video.duration;
+  const near = marks.map(m => ({ m, ds: Math.abs(m.start - t), de: Math.abs(m.end - t) }))
+    .filter(x => Math.min(x.ds, x.de) <= tol).sort((a, b) => Math.min(a.ds, a.de) - Math.min(b.ds, b.de))[0];
+  if (near) drag = { kind: near.ds <= near.de ? "start" : "end", m: near.m, prev: { start: near.m.start, end: near.m.end }, x0: e.clientX, moved: true };
+  else drag = { kind: "new", anchor: t, cur: t, x0: e.clientX, moved: false };
 });
+barEl.addEventListener("pointermove", e => {
+  if (!drag) return;
+  const t = barTime(e);
+  if (drag.kind === "new") {
+    if (Math.abs(e.clientX - drag.x0) > 4) drag.moved = true;
+    drag.cur = t;
+  } else {
+    const m = drag.m;
+    if (drag.kind === "start") m.start = Math.min(t, m.end - 0.3); else m.end = Math.max(t, m.start + 0.3);
+    video.currentTime = drag.kind === "start" ? m.start : m.end;
+  }
+  render();
+});
+function endBarDrag(e) {
+  if (!drag) return;
+  const d = drag; drag = null;
+  if (d.kind === "new") {
+    if (!d.moved) { video.currentTime = d.anchor; render(); return; }
+    const a = Math.min(d.anchor, d.cur), b = Math.max(d.anchor, d.cur);
+    if (b - a >= 0.3) {
+      const m = { id: nextId++, start: a, end: b };
+      marks.push(m); history.push({ type: "add", id: m.id });
+      marks.sort((x, y) => x.start - y.start);
+    }
+  } else if (d.m.start !== d.prev.start || d.m.end !== d.prev.end) {
+    history.push({ type: "edit", id: d.m.id, prev: d.prev });
+    marks.sort((x, y) => x.start - y.start);
+  }
+  commit();
+}
+barEl.addEventListener("pointerup", endBarDrag);
+barEl.addEventListener("pointercancel", endBarDrag);
 
 // 操作
 const hold = byId("hold");
-hold.addEventListener("pointerdown", e => { e.preventDefault(); hold.setPointerCapture(e.pointerId); handleHoldStart(); });
-hold.addEventListener("pointerup", handleHoldEnd);
-hold.addEventListener("pointercancel", handleHoldEnd);
+let mode = "hold";
+try { mode = localStorage.getItem("pc:mode") || "hold"; } catch (e) {}
+function applyMode() {
+  byId("mode").value = mode;
+  byId("modeHint").textContent = mode === "hold"
+    ? "再生しながら、ラリーが始まったら押す → 点が決まったら離す。"
+    : "ラリーが始まったら1回タップ → 点が決まったらもう1回タップ（スペースキーも同じ）。";
+  updateHoldLabel();
+}
+function updateHoldLabel() {
+  const on = holdStart !== null;
+  hold.textContent = mode === "hold" ? "🏓 ラリー中は押しっぱなし（スペースキー）"
+    : on ? "■ ラリー終わり（タップ）" : "🏓 ラリー始め（タップ）";
+  hold.classList.toggle("on", on);
+}
+function toggleTap() { holdStart === null ? handleHoldStart() : handleHoldEnd(); }
+byId("mode").onchange = e => { mode = e.target.value; try { localStorage.setItem("pc:mode", mode); } catch (er) {} if (holdStart !== null) handleHoldEnd(); applyMode(); };
+hold.addEventListener("pointerdown", e => { e.preventDefault(); hold.setPointerCapture(e.pointerId); mode === "hold" ? handleHoldStart() : toggleTap(); });
+hold.addEventListener("pointerup", () => { if (mode === "hold") handleHoldEnd(); });
+hold.addEventListener("pointercancel", () => { if (mode === "hold") handleHoldEnd(); });
 byId("back5").onclick = () => { video.currentTime = Math.max(0, video.currentTime - 5); };
 byId("rate").onchange = e => { video.playbackRate = parseFloat(e.target.value); };
 byId("undo").onclick = undoLast;
 
 document.addEventListener("keydown", e => {
   if (!video.src || /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
-  if (e.code === "Space") { e.preventDefault(); if (!e.repeat) handleHoldStart(); }
+  if (e.code === "Space") { e.preventDefault(); if (!e.repeat) mode === "hold" ? handleHoldStart() : toggleTap(); }
   else if (e.code === "KeyZ") undoLast();
   else if (e.code === "ArrowRight" || e.code === "ArrowLeft") {
     const t = video.currentTime;
@@ -254,7 +316,7 @@ document.addEventListener("keydown", e => {
     if (m) video.currentTime = m.start;
   }
 });
-document.addEventListener("keyup", e => { if (e.code === "Space" && holdStart !== null) { e.preventDefault(); handleHoldEnd(); } });
+document.addEventListener("keyup", e => { if (mode === "hold" && e.code === "Space" && holdStart !== null) { e.preventDefault(); handleHoldEnd(); } });
 
 // ラリーだけ連続再生
 byId("playRallies").onclick = () => {
@@ -355,6 +417,7 @@ byId("export").onclick = async () => {
     btn.disabled = marks.length === 0;
   }
 };
+applyMode();
 render();
 </script>
 </body>

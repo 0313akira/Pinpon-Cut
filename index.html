@@ -3,147 +3,239 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ピンポンカット｜ラリーだけの動画を作る</title>
-<meta name="description" content="卓球の試合動画で、ラリーの間だけボタンを押しっぱなしにすると、その区間だけをつないだ動画を書き出せます。無料・登録なし・動画は端末から出ません。">
+<title>ピンポンカット｜卓球のラリーだけ切り抜き</title>
+<meta name="description" content="卓球の試合動画から、ラリーの場面だけをつないだ動画を作れる無料ツール。登録なし・動画は端末から出ません。">
 <style>
-:root{--green:#0b5d3b;--green2:#0e7a4d;--gold:#d9a521;--red:#c62828;--bg:#f5f7f4;--card:#fff;--text:#1d2a24;--sub:#5d6b64;--line:#dfe6e1}
-@media (prefers-color-scheme:dark){:root{--bg:#101613;--card:#18211c;--text:#e8efe9;--sub:#9db0a5;--line:#2a3830}}
+:root{--green:#0b5d3b;--green2:#0e7a4d;--green-soft:#e6f2ec;--gold:#d9a521;--gold-dark:#a87c0c;--red:#c62828;--bg:#f5f7f4;--card:#fff;--text:#1d2a24;--sub:#5d6b64;--line:#dfe6e1}
+@media (prefers-color-scheme:dark){:root{--green-soft:#173327;--bg:#101613;--card:#18211c;--text:#e8efe9;--sub:#9db0a5;--line:#2a3830}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font:16px/1.6 -apple-system,"Hiragino Sans","Noto Sans JP",sans-serif}
-header{background:var(--green);color:#fff;padding:14px 16px}
+header{background:var(--green);color:#fff;padding:12px 16px;border-bottom:4px solid var(--gold)}
+header .in{max-width:920px;margin:0 auto;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
 header h1{margin:0;font-size:20px}
-header p{margin:2px 0 0;font-size:13px;opacity:.9}
+header span{font-size:13px;opacity:.9}
 main{max-width:920px;margin:0 auto;padding:16px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
 h2{font-size:17px;margin:0 0 10px}
-.steps{display:flex;gap:8px;flex-wrap:wrap;margin:0;padding:0;list-style:none;font-size:14px;color:var(--sub)}
-.steps li{background:var(--bg);border-radius:20px;padding:2px 12px}
-.pick{display:block;text-align:center;border:2px dashed var(--green2);border-radius:12px;padding:32px 12px;cursor:pointer;color:var(--green2);font-weight:700}
+.hero h2{font-size:22px;line-height:1.4;margin-bottom:8px}
+.hero ul{margin:0 0 14px;padding-left:1.2em}
+.hero li{margin:2px 0}
+.example{margin:0 0 14px}
+.example .cap{font-size:12px;color:var(--sub);margin-bottom:4px}
+.ex-row{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--sub);margin:3px 0}
+.ex-row .lab{width:7.5em;flex:none;white-space:nowrap}
+.ex-bar{flex:1;height:14px;border-radius:4px;background:var(--line);position:relative;overflow:hidden}
+.ex-bar i{position:absolute;top:0;bottom:0;background:var(--gold)}
+.ex-after{display:flex;gap:2px;flex:1}
+.ex-after i{height:14px;background:var(--gold);border-radius:3px}
+/* 卓球台の形をした「動画を選ぶ」 */
+.pick{display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;background:var(--green2);color:#fff;border:3px solid #fff;outline:2px solid var(--green2);border-radius:10px;min-height:150px;padding:16px;cursor:pointer;font-weight:700;font-size:18px;text-align:center}
+.pick::before{content:"";position:absolute;left:50%;top:0;bottom:0;border-left:3px solid rgba(255,255,255,.9)}
+.pick::after{content:"";position:absolute;left:0;right:0;top:50%;border-top:2px solid rgba(255,255,255,.6)}
+.pick b{position:relative;z-index:1;background:var(--green2);padding:4px 12px;border-radius:8px}
+.pick small{position:relative;z-index:1;background:var(--green2);font-weight:400;font-size:13px;margin-top:6px;padding:0 8px}
 .pick input{display:none}
-#editor{display:none}
-video{width:100%;max-height:60vh;background:#000;border-radius:8px;display:block}
-.bar{touch-action:none;position:relative;height:36px;background:var(--bg);border-radius:6px;margin:8px 0;cursor:pointer;overflow:hidden;border:1px solid var(--line)}
-.bar .seg{position:absolute;top:0;bottom:0;background:var(--gold);opacity:.85}
-.bar .live{position:absolute;top:0;bottom:0;background:var(--red);opacity:.6}
-.bar .head{position:absolute;top:0;bottom:0;width:2px;background:var(--green)}
+.small-pick{display:inline-block;color:var(--green2);font-size:14px;cursor:pointer;text-decoration:underline}
+.small-pick input{display:none}
+video{width:100%;max-height:58vh;background:#000;border-radius:8px;display:block}
+.bar{touch-action:none;position:relative;height:40px;background:var(--bg);border-radius:6px;margin:8px 0 4px;cursor:pointer;overflow:hidden;border:1px solid var(--line)}
+.bar .seg{position:absolute;top:0;bottom:0;background:var(--gold);opacity:.85;pointer-events:none}
+.bar .seg.sel{opacity:1;box-shadow:inset 0 0 0 2px var(--gold-dark)}
+.bar .live{position:absolute;top:0;bottom:0;background:var(--red);opacity:.6;pointer-events:none}
+.bar .head{position:absolute;top:0;bottom:0;width:2px;background:var(--green);pointer-events:none;z-index:2}
+.bar .handle{position:absolute;top:0;bottom:0;width:14px;margin-left:-7px;background:var(--gold-dark);border-radius:4px;pointer-events:none;z-index:1}
+.bar .handle::after{content:"";position:absolute;left:5px;top:30%;bottom:30%;border-left:2px solid #fff;border-right:2px solid #fff;width:0}
+.barinfo{display:flex;justify-content:space-between;font-size:12px;color:var(--sub)}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0}
 button,select{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:8px;padding:8px 12px;cursor:pointer}
 button:disabled{opacity:.4;cursor:default}
-button.primary{background:var(--green);color:#fff;border-color:var(--green);font-weight:700}
-#hold{width:100%;padding:22px 8px;font-size:18px;font-weight:700;background:var(--green2);color:#fff;border:0;border-radius:12px;touch-action:none;user-select:none;-webkit-user-select:none}
+.primary,a.primary{display:inline-block;background:var(--green);color:#fff;border:1px solid var(--green);font-weight:700;border-radius:8px;padding:10px 16px;text-decoration:none}
+.gold{background:var(--gold);border-color:var(--gold);color:#1d2a24;font-weight:700}
+#hold{width:100%;padding:22px 8px;font-size:18px;font-weight:700;background:var(--green2);color:#fff;border:0;border-radius:12px;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 #hold.on{background:var(--red)}
-.hint{font-size:13px;color:var(--sub)}
-ul#list{list-style:none;margin:0;padding:0}
-#list li{display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:8px 0;border-top:1px solid var(--line);font-size:14px}
-#list li b{min-width:2em}
+.hint{font-size:13px;color:var(--sub);margin:6px 0}
+ul#list{list-style:none;margin:0;padding:0;max-height:360px;overflow:auto}
+#list li{display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:8px 6px;border-top:1px solid var(--line);font-size:14px;border-radius:6px}
+#list li b{min-width:1.6em}
+#list li span{flex:1 1 calc(100% - 2.5em)}
+#list li b+span~button{margin-left:0}
+.kbd{font-weight:400;font-size:14px;opacity:.85}
+@media(max-width:600px){.kbd{display:none}}
 #list li button{padding:4px 8px;font-size:13px}
-#list li.cur{background:rgba(217,165,33,.15)}
+#list li.sel{background:rgba(217,165,33,.18)}
 label.num{font-size:14px;display:flex;gap:6px;align-items:center}
-input[type=number]{width:5em;font:inherit;padding:6px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--text)}
-progress{width:100%;height:14px}
+input[type=number]{width:4.5em;font:inherit;padding:6px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--text)}
+progress{width:100%;height:14px;margin-top:8px}
 #msg{font-size:14px;margin-top:8px;white-space:pre-wrap}
 #msg.err{color:var(--red)}
+#done{display:none;margin-top:12px;border-top:1px solid var(--line);padding-top:12px}
+textarea{width:100%;font:inherit;font-size:14px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--text);resize:vertical}
+details summary{cursor:pointer;color:var(--sub);font-size:14px}
+.layout{display:block}
+@media(min-width:880px){.layout{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px;align-items:start}.layout .side{position:sticky;top:12px}}
+.mbar{display:none}
+@media(max-width:879px){
+  .mbar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:5;background:var(--card);border-top:1px solid var(--line);padding:8px 16px calc(8px + env(safe-area-inset-bottom));gap:8px;align-items:center}
+  .mbar span{flex:1;font-size:14px}
+  body.editing main{padding-bottom:80px}
+}
 footer{text-align:center;color:var(--sub);font-size:12px;padding:16px}
-@media(max-width:480px){main{padding:10px}.card{padding:12px}}
+footer a{color:var(--sub)}
+@media(max-width:480px){main{padding:10px}.card{padding:12px}.hero h2{font-size:19px}}
 </style>
 </head>
 <body>
-<header>
-  <h1>🏓 ピンポンカット</h1>
-  <p>ラリーの間だけボタンを押しっぱなし → ラリーだけの動画ができる</p>
-</header>
+<header><div class="in"><h1>🏓 ピンポンカット</h1><span>卓球のラリーだけ切り抜き</span></div></header>
 <main>
-  <section class="card">
-    <ul class="steps"><li>1️⃣ 動画を選ぶ</li><li>2️⃣ ラリーの間だけ押しっぱなし</li><li>3️⃣ ラリーだけの動画にする</li></ul>
-    <p class="hint">無料・登録なし。動画はこの端末から出ません（サーバーに送りません）。</p>
-    <label class="pick" id="pickLabel">📂 卓球の動画を選ぶ<input type="file" id="file" accept="video/*"></label>
+  <!-- 最初の画面 -->
+  <section class="card hero" id="hero">
+    <h2>試合動画から、ラリーの場面だけをつないだ動画を作る</h2>
+    <ul>
+      <li>ラリー中だけボタンを押す（タップでもOK）</li>
+      <li>球拾い・待ち時間が消えた動画ができる</li>
+      <li>無料・登録なし。動画はこの端末から出ません</li>
+    </ul>
+    <div class="example" aria-label="こうなります（例）">
+      <div class="cap">こうなります（例）</div>
+      <div class="ex-row"><span class="lab">元の動画 10分</span><div class="ex-bar"><i style="left:4%;width:9%"></i><i style="left:20%;width:6%"></i><i style="left:33%;width:11%"></i><i style="left:52%;width:5%"></i><i style="left:63%;width:8%"></i><i style="left:80%;width:10%"></i></div></div>
+      <div class="ex-row"><span class="lab">切り抜き 5分</span><div class="ex-after"><i style="flex:9"></i><i style="flex:6"></i><i style="flex:11"></i><i style="flex:5"></i><i style="flex:8"></i><i style="flex:10"></i><i style="flex:51;background:transparent"></i></div></div>
+    </div>
+    <label class="pick">
+      <b>📂 動画を選ぶ</b><small>スマホで撮った試合動画（横向き）</small>
+      <input type="file" id="file" accept="video/*">
+    </label>
     <div class="row" id="resumeRow" style="display:none"><button id="resume">前回の続きから（印を戻す）</button><span class="hint" id="resumeInfo"></span></div>
   </section>
 
-  <div id="editor">
-    <section class="card">
-      <video id="video" playsinline controls controlslist="nodownload"></video>
-      <div class="bar" id="bar"><div class="head" id="head"></div></div>
-      <div class="row">
-        <button id="back5">⏪ 5秒戻る</button>
-        <select id="rate"><option value="1">1x</option><option value="1.5">1.5x</option><option value="2">2x</option></select>
-        <button id="undo">↩ 1つ前を取り消す (Z)</button>
-        <button id="playRallies">▶ ラリーだけ再生</button>
-      </div>
-      <div class="row"><label class="num">操作方式
-        <select id="mode"><option value="hold">押しっぱなし</option><option value="tap">タップで開始／終了</option></select></label></div>
-      <button id="hold">🏓 ラリー中は押しっぱなし（スペースキー）</button>
-      <p class="hint" id="modeHint"></p>
-      <p class="hint">上のバーでも編集できます：空いている所をドラッグで区間を作る／区間の端をドラッグで調整／タップでその位置へ移動。←→キーでラリー間を移動。</p>
-    </section>
+  <div id="editor" class="layout" style="display:none">
+    <div>
+      <section class="card">
+        <div class="row" style="margin-top:0;justify-content:space-between">
+          <span class="hint" id="fileName" style="margin:0"></span>
+          <label class="small-pick">別の動画を選ぶ<input type="file" id="file2" accept="video/*"></label>
+        </div>
+        <video id="video" playsinline controls controlslist="nodownload"></video>
+        <div class="bar" id="bar"><div class="head" id="head"></div></div>
+        <div class="barinfo"><span id="viewL"></span><span id="viewR"></span></div>
+        <div class="row">
+          <button id="back5">⏪ 5秒</button>
+          <select id="rate" aria-label="再生の速さ"><option value="1">1x</option><option value="1.5">1.5x</option><option value="2">2x</option></select>
+          <select id="zoom" aria-label="バーの表示範囲"><option value="0">バー：全体</option><option value="60">バー：60秒</option><option value="20">バー：20秒</option></select>
+          <button id="undo">↩ 取り消す (Z)</button>
+        </div>
+        <button id="hold">🏓 ラリー中は押しっぱなし（スペースキー）</button>
+        <div class="row" style="margin-bottom:0"><label class="num">操作
+          <select id="mode"><option value="hold">押しっぱなし</option><option value="tap">タップで開始／終了</option></select></label>
+          <span class="hint" id="modeHint" style="margin:0"></span></div>
+        <details style="margin-top:8px"><summary>バーでの直し方</summary>
+          <p class="hint">・空いている所をドラッグ → 新しい区間<br>・区間をタップ → 選択（端に太いつまみが出る）<br>・つまみをドラッグ → 長さを調整<br>・細かく直すときは「バー：20秒」に<br>・←→キーでラリー間を移動</p>
+        </details>
+      </section>
+    </div>
 
-    <section class="card">
-      <h2>つけた印 <span id="total" class="hint"></span></h2>
-      <ul id="list"></ul>
-      <p class="hint" id="empty">まだ印がありません。</p>
-    </section>
+    <div class="side">
+      <section class="card">
+        <h2>つけた印 <span id="total" class="hint"></span></h2>
+        <div class="row" style="margin-top:0"><button id="playRallies">▶ ラリーだけ再生</button></div>
+        <ul id="list"></ul>
+        <p class="hint" id="empty">まだ印がありません。動画を再生して、ラリー中だけボタンを押してください。</p>
+      </section>
 
-    <section class="card">
-      <h2>書き出し</h2>
-      <div class="row">
-        <label class="num">前に足す<input type="number" id="lead" value="0" min="0" max="5" step="0.1">秒</label>
-        <label class="num">終わりに足す<input type="number" id="tail" value="1.2" min="0" max="5" step="0.1">秒</label>
-      </div>
-      <button class="primary" id="export">ラリーだけの動画を書き出す</button>
-      <p class="hint">書き出しは再生しながら録画するため、ラリー合計と同じ時間がかかります。画面を閉じずに待ってください。</p>
-      <progress id="prog" value="0" max="1" style="display:none"></progress>
-      <div id="msg"></div>
-      <a id="dl" class="primary" style="display:none;margin-top:8px"></a>
-    </section>
+      <section class="card" id="exportCard">
+        <h2>書き出し</h2>
+        <div class="row">
+          <label class="num">画質
+            <select id="quality"><option value="1920">高画質（1920）</option><option value="1280">軽さ優先（1280）</option><option value="0">元のまま</option></select></label>
+        </div>
+        <div class="row">
+          <label class="num">前に足す<input type="number" id="lead" value="0" min="0" max="5" step="0.1">秒</label>
+          <label class="num">後に足す<input type="number" id="tail" value="1.2" min="0" max="5" step="0.1">秒</label>
+        </div>
+        <button class="primary" id="export">ラリーだけの動画を書き出す</button>
+        <progress id="prog" value="0" max="1" style="display:none"></progress>
+        <div id="msg"></div>
+        <div id="done">
+          <div class="row"><a id="dl" class="primary">⬇ 保存する</a><button id="share" class="gold" style="display:none">📲 写真に保存・共有</button></div>
+          <p class="hint">投稿用のキャプション例（自由に変えてください）</p>
+          <textarea id="caption" rows="4"></textarea>
+          <div class="row"><button id="copyCap">📋 キャプションをコピー</button><span class="hint" id="copied" style="margin:0"></span></div>
+          <p class="hint" id="fbRow" style="display:none">使ってみた感想を教えてください → <a id="fbLink" target="_blank" rel="noopener">感想を送る（1分）</a></p>
+        </div>
+      </section>
+    </div>
   </div>
 </main>
-<footer>版 2026-11-04a ／ 動画は端末の外に出ません</footer>
+<div class="mbar" id="mbar" style="display:none"><span id="mbarText"></span><button class="primary" id="mbarBtn">書き出しへ</button></div>
+<footer>版 2026-11-04b ／ 動画は端末の外に出ません ／ <a href="privacy.html">プライバシー</a></footer>
 
 <script>
 "use strict";
+// ───────── 設定（公開するときに書き換える） ─────────
+const FEEDBACK_URL = "";     // 例："https://forms.gle/xxxx"（空なら感想リンクを出さない）
+const GOATCOUNTER_CODE = ""; // 例："pinponcut"（空ならアクセス解析を読み込まない）
+
 // ───────── 共通の小さな道具 ─────────
 const byId = id => document.getElementById(id);
 const formatTime = t => { t = Math.max(0, t || 0); const m = Math.floor(t / 60), s = t - m * 60; return m + ":" + s.toFixed(1).padStart(4, "0"); };
-const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+// アクセス解析（Cookieなし・個人を特定しない GoatCounter）
+if (GOATCOUNTER_CODE) {
+  const s = document.createElement("script");
+  s.async = true; s.src = "https://gc.zgo.at/count.js";
+  s.dataset.goatcounter = "https://" + GOATCOUNTER_CODE + ".goatcounter.com/count";
+  document.head.appendChild(s);
+}
+const sentOnce = {};
+function track(name, once) {
+  if (once && sentOnce[name]) return; sentOnce[name] = true;
+  try { window.goatcounter && window.goatcounter.count && window.goatcounter.count({ path: name, title: name, event: true }); } catch (e) {}
+}
 
 const video = byId("video");
 let marks = [];          // {id,start,end}
 let history = [];        // 操作の履歴（取り消し用）
 let nextId = 1;
-let holdStart = null;    // 押している間だけ値が入る
-let fileKey = "";
-let fileUrl = null;
-let rallyPlay = null;    // ラリーだけ再生の状態
+let holdStart = null;    // ラリー中（印をつけている途中）だけ値が入る
+let selectedId = null;   // バーで選んでいる区間
+let currentFile = null, fileKey = "", fileUrl = null;
+let rallyPlay = null;
+let lastBlob = null;
 
 // ───────── 1️⃣ 動画を選ぶ ─────────
-byId("file").addEventListener("change", e => {
-  const f = e.target.files[0];
+function openFile(f) {
   if (!f) return;
   if (fileUrl) URL.revokeObjectURL(fileUrl);
+  currentFile = f;
   fileUrl = URL.createObjectURL(f);
   fileKey = "pc:" + f.name + ":" + f.size;
   video.src = fileUrl;
-  marks = []; history = []; holdStart = null;
-  byId("editor").style.display = "block";
-  byId("pickLabel").firstChild.textContent = "📂 " + f.name + "（別の動画を選ぶ）";
-  showResume();
-  render();
-});
+  marks = []; history = []; holdStart = null; selectedId = null;
+  byId("fileName").textContent = "📂 " + f.name;
+  byId("editor").style.display = "";
+  byId("hero").querySelectorAll("h2,ul,.example,.pick").forEach(n => n.style.display = "none");
+  byId("hero").style.display = saved() ? "" : "none";
+  document.body.classList.add("editing");
+  byId("done").style.display = "none"; byId("msg").textContent = "";
+  showResume(); render();
+  track("1-動画を選んだ");
+}
+byId("file").addEventListener("change", e => openFile(e.target.files[0]));
+byId("file2").addEventListener("change", e => openFile(e.target.files[0]));
 
-function saved() { try { return JSON.parse(localStorage.getItem(fileKey)); } catch (e) { return null; } }
+function saved() { try { const s = JSON.parse(localStorage.getItem(fileKey)); return s && s.marks && s.marks.length ? s : null; } catch (e) { return null; } }
 function save() { try { localStorage.setItem(fileKey, JSON.stringify({ marks, nextId })); } catch (e) {} }
 function showResume() {
   const s = saved();
-  byId("resumeRow").style.display = s && s.marks && s.marks.length ? "flex" : "none";
-  if (s && s.marks) byId("resumeInfo").textContent = "保存された印：" + s.marks.length + "本";
+  byId("resumeRow").style.display = s ? "flex" : "none";
+  if (s) byId("resumeInfo").textContent = "保存された印：" + s.marks.length + "本";
 }
 byId("resume").onclick = () => {
   const s = saved(); if (!s) return;
   marks = s.marks; nextId = s.nextId || (marks.length + 1); history = [];
-  byId("resumeRow").style.display = "none"; render();
+  byId("hero").style.display = "none"; render();
 };
 
-// ───────── 2️⃣ ラリーの間だけ押しっぱなし ─────────
+// ───────── 2️⃣ ラリーの区間に印をつける ─────────
 function handleHoldStart() {
   if (holdStart !== null || !video.src) return;
   holdStart = video.currentTime;
@@ -156,12 +248,16 @@ function handleHoldEnd() {
   const a = holdStart, b = video.currentTime;
   holdStart = null;
   updateHoldLabel();
-  if (Math.abs(b - a) >= 0.3) {
-    const m = { id: nextId++, start: Math.min(a, b), end: Math.max(a, b) };
-    marks.push(m);
-    history.push({ type: "add", id: m.id });
-    marks.sort((x, y) => x.start - y.start);
-  }
+  if (Math.abs(b - a) >= 0.3) addMark(Math.min(a, b), Math.max(a, b));
+  else render();
+}
+function addMark(start, end) {
+  const m = { id: nextId++, start, end };
+  marks.push(m);
+  history.push({ type: "add", id: m.id });
+  marks.sort((x, y) => x.start - y.start);
+  if (byId("hero").style.display !== "none") byId("hero").style.display = "none";
+  track("2-印をつけた", true);
   commit();
 }
 
@@ -171,7 +267,7 @@ function undoLast() {
   if (!h) return;
   if (h.type === "add") marks = marks.filter(m => m.id !== h.id);
   else if (h.type === "del") { marks.push(h.mark); marks.sort((x, y) => x.start - y.start); }
-  else if (h.type === "edit") { const m = marks.find(x => x.id === h.id); if (m) { m.start = h.prev.start; m.end = h.prev.end; } }
+  else if (h.type === "edit") { const m = marks.find(x => x.id === h.id); if (m) { m.start = h.prev.start; m.end = h.prev.end; } marks.sort((x, y) => x.start - y.start); }
   commit();
 }
 function commit() { save(); render(); }
@@ -180,8 +276,8 @@ function editMark(id, key) {
   const m = marks.find(x => x.id === id); if (!m) return;
   const prev = { start: m.start, end: m.end };
   const t = video.currentTime;
-  if (key === "start" && t < m.end) m.start = t;
-  else if (key === "end" && t > m.start) m.end = t;
+  if (key === "start" && t < m.end - 0.1) m.start = t;
+  else if (key === "end" && t > m.start + 0.1) m.end = t;
   else return;
   history.push({ type: "edit", id, prev });
   commit();
@@ -190,68 +286,62 @@ function deleteMark(id) {
   const i = marks.findIndex(x => x.id === id); if (i < 0) return;
   history.push({ type: "del", mark: marks[i] });
   marks.splice(i, 1);
+  if (selectedId === id) selectedId = null;
   commit();
 }
 
-// ───────── 画面の描画 ─────────
-function render() {
-  const d = video.duration || 0;
-  const bar = byId("bar");
-  bar.querySelectorAll(".seg,.live").forEach(n => n.remove());
-  const put = (a, b, cls) => {
-    if (!d) return;
-    const n = document.createElement("div"); n.className = cls;
-    n.style.left = (a / d * 100) + "%"; n.style.width = Math.max(0.3, (b - a) / d * 100) + "%";
-    bar.appendChild(n);
-  };
-  marks.forEach(m => put(m.start, m.end, "seg"));
-  if (holdStart !== null) put(Math.min(holdStart, video.currentTime), Math.max(holdStart, video.currentTime), "live");
-  if (drag && drag.kind === "new" && drag.moved) put(Math.min(drag.anchor, drag.cur), Math.max(drag.anchor, drag.cur), "live");
-
-  const list = byId("list"); list.innerHTML = "";
-  marks.forEach((m, i) => {
-    const li = document.createElement("li");
-    li.dataset.id = m.id;
-    li.innerHTML = `<b>${i + 1}</b><span>${formatTime(m.start)} → ${formatTime(m.end)}（${(m.end - m.start).toFixed(1)}秒）</span>`;
-    const btn = (label, fn) => { const b = document.createElement("button"); b.textContent = label; b.onclick = fn; li.appendChild(b); };
-    btn("▶ 見る", () => { video.currentTime = m.start; video.play(); });
-    btn("始め=今", () => editMark(m.id, "start"));
-    btn("終わり=今", () => editMark(m.id, "end"));
-    btn("削除", () => deleteMark(m.id));
-    list.appendChild(li);
-  });
-  byId("empty").style.display = marks.length ? "none" : "block";
-  const sum = marks.reduce((s, m) => s + m.end - m.start, 0);
-  byId("total").textContent = marks.length ? `（${marks.length}本・合計 ${formatTime(sum)}）` : "";
-  byId("undo").disabled = history.length === 0;
-  byId("export").disabled = marks.length === 0;
-  byId("playRallies").disabled = marks.length === 0;
-}
-function updateHead() {
-  const d = video.duration || 0;
-  byId("head").style.left = d ? (video.currentTime / d * 100) + "%" : "0";
-  if (holdStart !== null) render();
-}
-video.addEventListener("timeupdate", updateHead);
-video.addEventListener("loadedmetadata", render);
-// バー上のドラッグ編集：空きをドラッグ＝新しい区間／端をドラッグ＝調整／タップ＝移動
-let drag = null;
+// ───────── バー（表示範囲・ドラッグ編集） ─────────
 const barEl = byId("bar");
-const barTime = e => { const r = barEl.getBoundingClientRect(); return Math.min(video.duration, Math.max(0, (e.clientX - r.left) / r.width * video.duration)); };
+let drag = null;
+let viewWin = [0, 0];
+function currentView() {
+  const d = video.duration || 0, span = parseFloat(byId("zoom").value) || 0;
+  if (!d) return [0, 0];
+  if (drag) return viewWin; // ドラッグ中は表示範囲を動かさない
+  if (!span || span >= d) viewWin = [0, d];
+  else {
+    const [v0, v1] = viewWin;
+    const t = video.currentTime;
+    // 再生位置が端に近づいたらずらす
+    if (v1 - v0 !== span || t < v0 + span * 0.1 || t > v1 - span * 0.1) {
+      const s = Math.min(Math.max(0, t - span / 2), d - span);
+      viewWin = [s, s + span];
+    }
+  }
+  return viewWin;
+}
+const barTime = e => {
+  const r = barEl.getBoundingClientRect(), [v0, v1] = viewWin;
+  return Math.min(video.duration, Math.max(0, v0 + (e.clientX - r.left) / r.width * (v1 - v0)));
+};
 barEl.addEventListener("pointerdown", e => {
   if (!video.duration) return;
   e.preventDefault(); barEl.setPointerCapture(e.pointerId);
-  const t = barTime(e), tol = 10 / barEl.getBoundingClientRect().width * video.duration;
-  const near = marks.map(m => ({ m, ds: Math.abs(m.start - t), de: Math.abs(m.end - t) }))
-    .filter(x => Math.min(x.ds, x.de) <= tol).sort((a, b) => Math.min(a.ds, a.de) - Math.min(b.ds, b.de))[0];
-  if (near) drag = { kind: near.ds <= near.de ? "start" : "end", m: near.m, prev: { start: near.m.start, end: near.m.end }, x0: e.clientX, moved: true };
-  else drag = { kind: "new", anchor: t, cur: t, x0: e.clientX, moved: false };
+  currentView();
+  const t = barTime(e), pxSec = (viewWin[1] - viewWin[0]) / barEl.getBoundingClientRect().width;
+  // 端の近くならその端をつかむ（選択中の区間は広めに反応）
+  let best = null;
+  marks.forEach(m => {
+    const tol = (m.id === selectedId ? 22 : 10) * pxSec;
+    [["start", m.start], ["end", m.end]].forEach(([k, v]) => {
+      const dist = Math.abs(v - t);
+      if (dist <= tol && (!best || dist < best.dist)) best = { m, k, dist };
+    });
+  });
+  if (best) {
+    selectedId = best.m.id;
+    drag = { kind: best.k, m: best.m, prev: { start: best.m.start, end: best.m.end } };
+  } else {
+    const inside = marks.find(m => t > m.start && t < m.end);
+    drag = { kind: "new", anchor: t, cur: t, x0: e.clientX, moved: false, inside };
+  }
+  render();
 });
 barEl.addEventListener("pointermove", e => {
   if (!drag) return;
   const t = barTime(e);
   if (drag.kind === "new") {
-    if (Math.abs(e.clientX - drag.x0) > 4) drag.moved = true;
+    if (Math.abs(e.clientX - drag.x0) > 6) drag.moved = true;
     drag.cur = t;
   } else {
     const m = drag.m;
@@ -260,41 +350,91 @@ barEl.addEventListener("pointermove", e => {
   }
   render();
 });
-function endBarDrag(e) {
+function endBarDrag() {
   if (!drag) return;
   const d = drag; drag = null;
   if (d.kind === "new") {
-    if (!d.moved) { video.currentTime = d.anchor; render(); return; }
-    const a = Math.min(d.anchor, d.cur), b = Math.max(d.anchor, d.cur);
-    if (b - a >= 0.3) {
-      const m = { id: nextId++, start: a, end: b };
-      marks.push(m); history.push({ type: "add", id: m.id });
-      marks.sort((x, y) => x.start - y.start);
+    if (!d.moved) { // タップ：その位置へ移動。区間の上なら選択
+      selectedId = d.inside ? d.inside.id : null;
+      video.currentTime = d.anchor; render(); return;
     }
+    const a = Math.min(d.anchor, d.cur), b = Math.max(d.anchor, d.cur);
+    if (b - a >= 0.3) { addMark(a, b); selectedId = marks.find(m => m.start === a && m.end === b).id; render(); return; }
+    render();
   } else if (d.m.start !== d.prev.start || d.m.end !== d.prev.end) {
     history.push({ type: "edit", id: d.m.id, prev: d.prev });
     marks.sort((x, y) => x.start - y.start);
-  }
-  commit();
+    commit();
+  } else render();
 }
 barEl.addEventListener("pointerup", endBarDrag);
 barEl.addEventListener("pointercancel", endBarDrag);
+byId("zoom").onchange = () => { viewWin = [0, 0]; render(); };
 
-// 操作
+// ───────── 画面の描画 ─────────
+function render() {
+  const [v0, v1] = currentView(), span = v1 - v0;
+  barEl.querySelectorAll(".seg,.live,.handle").forEach(n => n.remove());
+  const pos = t => ((t - v0) / span * 100);
+  const put = (a, b, cls) => {
+    if (!span || b < v0 || a > v1) return;
+    const n = document.createElement("div"); n.className = cls;
+    n.style.left = pos(a) + "%"; n.style.width = Math.max(0.4, (b - a) / span * 100) + "%";
+    barEl.appendChild(n);
+  };
+  marks.forEach(m => {
+    put(m.start, m.end, "seg" + (m.id === selectedId ? " sel" : ""));
+    if (m.id === selectedId) [m.start, m.end].forEach(t => {
+      if (t < v0 || t > v1) return;
+      const h = document.createElement("div"); h.className = "handle"; h.style.left = pos(t) + "%"; barEl.appendChild(h);
+    });
+  });
+  if (holdStart !== null) put(Math.min(holdStart, video.currentTime), Math.max(holdStart, video.currentTime), "live");
+  if (drag && drag.kind === "new" && drag.moved) put(Math.min(drag.anchor, drag.cur), Math.max(drag.anchor, drag.cur), "live");
+  byId("head").style.left = span ? pos(video.currentTime) + "%" : "0";
+  byId("viewL").textContent = span ? formatTime(v0) : "";
+  byId("viewR").textContent = span ? formatTime(v1) : "";
+
+  const list = byId("list"); list.innerHTML = "";
+  marks.forEach((m, i) => {
+    const li = document.createElement("li");
+    if (m.id === selectedId) li.className = "sel";
+    li.innerHTML = `<b>${i + 1}</b><span>${formatTime(m.start)} → ${formatTime(m.end)}（${(m.end - m.start).toFixed(1)}秒）</span>`;
+    const btn = (label, fn, title) => { const b = document.createElement("button"); b.textContent = label; if (title) b.title = title; b.onclick = ev => { ev.stopPropagation(); fn(); }; li.appendChild(b); };
+    btn("▶", () => { selectedId = m.id; video.currentTime = m.start; video.play(); render(); }, "この区間を見る");
+    btn("始め=今", () => editMark(m.id, "start"));
+    btn("終わり=今", () => editMark(m.id, "end"));
+    btn("✕", () => deleteMark(m.id), "削除");
+    li.onclick = () => { selectedId = m.id; video.currentTime = m.start; render(); };
+    list.appendChild(li);
+  });
+  byId("empty").style.display = marks.length ? "none" : "block";
+  const sum = marks.reduce((s, m) => s + m.end - m.start, 0);
+  const totalText = marks.length ? `${marks.length}本・合計 ${formatTime(sum)}` : "";
+  byId("total").textContent = totalText ? `（${totalText}）` : "";
+  byId("undo").disabled = history.length === 0;
+  byId("export").disabled = marks.length === 0 || exporting;
+  byId("playRallies").disabled = marks.length === 0;
+  byId("mbar").style.display = marks.length && byId("editor").style.display !== "none" ? "" : "none";
+  byId("mbarText").textContent = totalText;
+}
+video.addEventListener("timeupdate", render);
+video.addEventListener("loadedmetadata", () => { viewWin = [0, 0]; render(); });
+video.addEventListener("seeked", render);
+
+// ───────── 操作（ボタン・キー） ─────────
 const hold = byId("hold");
 let mode = "hold";
 try { mode = localStorage.getItem("pc:mode") || "hold"; } catch (e) {}
 function applyMode() {
   byId("mode").value = mode;
-  byId("modeHint").textContent = mode === "hold"
-    ? "再生しながら、ラリーが始まったら押す → 点が決まったら離す。"
-    : "ラリーが始まったら1回タップ → 点が決まったらもう1回タップ（スペースキーも同じ）。";
+  byId("modeHint").textContent = mode === "hold" ? "ラリー中だけ押し続ける" : "始めと終わりに1回ずつタップ";
   updateHoldLabel();
 }
 function updateHoldLabel() {
   const on = holdStart !== null;
-  hold.textContent = mode === "hold" ? "🏓 ラリー中は押しっぱなし（スペースキー）"
-    : on ? "■ ラリー終わり（タップ）" : "🏓 ラリー始め（タップ）";
+  hold.innerHTML = mode === "hold" ? (on ? "● 記録中…離すと終わり" : "🏓 ラリー中は押しっぱなし <span class=kbd>（スペース）</span>")
+    : on ? "■ ラリー終わり <span class=kbd>（スペース）</span>" : "🏓 ラリー始め <span class=kbd>（スペース）</span>";
   hold.classList.toggle("on", on);
 }
 function toggleTap() { holdStart === null ? handleHoldStart() : handleHoldEnd(); }
@@ -302,33 +442,38 @@ byId("mode").onchange = e => { mode = e.target.value; try { localStorage.setItem
 hold.addEventListener("pointerdown", e => { e.preventDefault(); hold.setPointerCapture(e.pointerId); mode === "hold" ? handleHoldStart() : toggleTap(); });
 hold.addEventListener("pointerup", () => { if (mode === "hold") handleHoldEnd(); });
 hold.addEventListener("pointercancel", () => { if (mode === "hold") handleHoldEnd(); });
+hold.addEventListener("contextmenu", e => e.preventDefault());
 byId("back5").onclick = () => { video.currentTime = Math.max(0, video.currentTime - 5); };
 byId("rate").onchange = e => { video.playbackRate = parseFloat(e.target.value); };
 byId("undo").onclick = undoLast;
+byId("mbarBtn").onclick = () => byId("exportCard").scrollIntoView({ behavior: "smooth" });
 
 document.addEventListener("keydown", e => {
   if (!video.src || /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
   if (e.code === "Space") { e.preventDefault(); if (!e.repeat) mode === "hold" ? handleHoldStart() : toggleTap(); }
-  else if (e.code === "KeyZ") undoLast();
+  else if (e.code === "KeyZ" && !e.metaKey && !e.ctrlKey) undoLast();
+  else if ((e.metaKey || e.ctrlKey) && e.code === "KeyZ") { e.preventDefault(); undoLast(); }
   else if (e.code === "ArrowRight" || e.code === "ArrowLeft") {
+    e.preventDefault();
     const t = video.currentTime;
     const m = e.code === "ArrowRight" ? marks.find(x => x.start > t + 0.05) : [...marks].reverse().find(x => x.start < t - 0.5);
-    if (m) video.currentTime = m.start;
+    if (m) { selectedId = m.id; video.currentTime = m.start; }
   }
 });
 document.addEventListener("keyup", e => { if (mode === "hold" && e.code === "Space" && holdStart !== null) { e.preventDefault(); handleHoldEnd(); } });
 
 // ラリーだけ連続再生
+function stopRallyPlay() { rallyPlay = null; byId("playRallies").textContent = "▶ ラリーだけ再生"; }
 byId("playRallies").onclick = () => {
-  if (rallyPlay) { rallyPlay = null; video.pause(); byId("playRallies").textContent = "▶ ラリーだけ再生"; return; }
+  if (rallyPlay) { stopRallyPlay(); video.pause(); return; }
   let i = 0; rallyPlay = true;
   byId("playRallies").textContent = "■ 止める";
   video.currentTime = marks[0].start; video.play();
   const tick = () => {
     if (!rallyPlay) return;
-    if (video.currentTime >= marks[i].end) {
+    if (i < marks.length && video.currentTime >= marks[i].end) {
       i++;
-      if (i >= marks.length) { rallyPlay = null; video.pause(); byId("playRallies").textContent = "▶ ラリーだけ再生"; return; }
+      if (i >= marks.length) { stopRallyPlay(); video.pause(); return; }
       video.currentTime = marks[i].start;
     }
     requestAnimationFrame(tick);
@@ -337,6 +482,7 @@ byId("playRallies").onclick = () => {
 };
 
 // ───────── 3️⃣ ラリーだけの動画にする ─────────
+let exporting = false;
 // 区間に前後の余白を足し、重なったものは1つにまとめる
 function buildSegments(lead, tail, duration) {
   const segs = [];
@@ -347,27 +493,80 @@ function buildSegments(lead, tail, duration) {
   });
   return segs;
 }
-function pickMime() {
-  const cands = [
-    ["video/mp4;codecs=avc1.42E01E,mp4a.40.2", "mp4"], ["video/mp4", "mp4"],
-    ["video/webm;codecs=vp9,opus", "webm"], ["video/webm;codecs=vp8,opus", "webm"], ["video/webm", "webm"]
-  ];
-  return cands.find(c => window.MediaRecorder && MediaRecorder.isTypeSupported(c[0]));
-}
 function setMsg(t, err) { const m = byId("msg"); m.textContent = t; m.className = err ? "err" : ""; }
 
 byId("export").onclick = async () => {
-  const mime = pickMime();
-  if (!mime) { setMsg("このブラウザは動画の書き出しに対応していません。Chrome か Safari の新しい版で開いてください。", true); return; }
-  const btn = byId("export"), prog = byId("prog"), dl = byId("dl");
-  btn.disabled = true; dl.style.display = "none"; prog.style.display = "block"; prog.value = 0;
-  video.pause(); rallyPlay = null;
+  if (exporting) return;
+  exporting = true;
+  const prog = byId("prog");
+  byId("done").style.display = "none"; prog.style.display = "block"; prog.value = 0;
+  video.pause(); stopRallyPlay(); render();
+  track("3-書き出しを押した");
 
   const lead = parseFloat(byId("lead").value) || 0, tail = parseFloat(byId("tail").value) || 0;
   const segs = buildSegments(lead, tail, video.duration);
-  const total = segs.reduce((s, x) => s + x.end - x.start, 0);
+  const maxSide = parseInt(byId("quality").value, 10) || 0;
+  let blob = null, ext = "mp4", fastErr = null;
 
-  // 書き出し専用の video（音は画面に出さず、録画にだけ流す）
+  // ① 再生せずにコマを組み替える（速い・音ズレなし）
+  try {
+    setMsg("書き出し中…（再生せずに組み立てています）");
+    const mod = await import("./export.js");
+    if (!mod.fastCutSupported()) throw new Error("このブラウザは高速書き出しに未対応");
+    blob = await mod.fastCut(currentFile, segs, { maxSide }, r => { prog.value = r; });
+  } catch (err) {
+    fastErr = err;
+    console.warn("fastCut failed", err, err && err.diag);
+    track("x-高速方式が使えなかった");
+  }
+  // ② だめなら再生しながら録画（時間はかかる）
+  if (!blob) {
+    try {
+      setMsg("高速方式が使えないため、再生しながら録画します。ラリー合計と同じ時間がかかります。画面を閉じずに待ってください。");
+      const r = await slowExport(segs, prog);
+      blob = r.blob; ext = r.ext;
+    } catch (err) {
+      track("x-録画も失敗");
+      setMsg("書き出しに失敗しました：" + err.message +
+        "\n（診断：" + (fastErr ? fastErr.message + " / " + (fastErr.diag || "") : "") + "）", true);
+      exporting = false; prog.style.display = "none"; render(); return;
+    }
+  }
+  if (!blob || !blob.size) { track("x-書き出しが空だった"); setMsg("書き出しが空でした。別の画質で試してください。", true); exporting = false; render(); return; }
+
+  lastBlob = blob;
+  const name = (currentFile.name.replace(/\.[^.]+$/, "") || "video") + "_ラリー." + ext;
+  const dl = byId("dl");
+  if (dl.href && dl.href.startsWith("blob:")) URL.revokeObjectURL(dl.href);
+  dl.href = URL.createObjectURL(blob); dl.download = name;
+  dl.textContent = `⬇ 保存する（${(blob.size / 1048576).toFixed(1)}MB）`;
+  const file = new File([blob], name, { type: blob.type });
+  const shareBtn = byId("share");
+  shareBtn.style.display = navigator.canShare && navigator.canShare({ files: [file] }) ? "" : "none";
+  shareBtn.onclick = async () => { try { await navigator.share({ files: [file] }); } catch (e) {} };
+  const sum = segs.reduce((s, x) => s + x.end - x.start, 0);
+  byId("caption").value = `試合のラリーだけ切り抜きました🏓（${segs.length}本・${formatTime(sum)}）\n#卓球 #tabletennis #ピンポンカット` +
+    (location.protocol.startsWith("http") ? `\nラリーだけ切り抜けるツール → ${location.origin}${location.pathname}` : "");
+  byId("copied").textContent = "";
+  if (FEEDBACK_URL) { byId("fbLink").href = FEEDBACK_URL; byId("fbRow").style.display = ""; }
+  byId("done").style.display = "block"; prog.value = 1;
+  setMsg("できました ✅" + (ext !== "mp4" ? "（このブラウザでは WebM 形式になりました）" : ""));
+  track("4-書き出せた");
+  exporting = false; render();
+  byId("done").scrollIntoView({ behavior: "smooth", block: "nearest" });
+};
+byId("copyCap").onclick = async () => {
+  const ta = byId("caption");
+  try { await navigator.clipboard.writeText(ta.value); } catch (e) { ta.select(); document.execCommand("copy"); }
+  byId("copied").textContent = "コピーしました";
+};
+
+// 控え：再生しながら MediaRecorder で録画する（コマ落ち・音ズレが出ることがある）
+async function slowExport(segs, prog) {
+  const cands = [["video/mp4;codecs=avc1.42E01E,mp4a.40.2", "mp4"], ["video/mp4", "mp4"], ["video/webm;codecs=vp9,opus", "webm"], ["video/webm", "webm"]];
+  const mime = cands.find(c => window.MediaRecorder && MediaRecorder.isTypeSupported(c[0]));
+  if (!mime) throw new Error("このブラウザは動画の書き出しに対応していません");
+  const total = segs.reduce((s, x) => s + x.end - x.start, 0);
   const v = document.createElement("video");
   v.src = fileUrl; v.playsInline = true; v.preload = "auto";
   let ac, rec;
@@ -375,18 +574,15 @@ byId("export").onclick = async () => {
     await new Promise((ok, ng) => { v.onloadeddata = ok; v.onerror = () => ng(new Error("動画を読み込めませんでした")); });
     ac = new (window.AudioContext || window.webkitAudioContext)();
     const dest = ac.createMediaStreamDestination();
-    ac.createMediaElementSource(v).connect(dest);
+    ac.createMediaElementSource(v).connect(dest); // 音は録画にだけ流す
     const vs = (v.captureStream || v.mozCaptureStream).call(v);
     const stream = new MediaStream([...vs.getVideoTracks(), ...dest.stream.getAudioTracks()]);
     const chunks = [];
     rec = new MediaRecorder(stream, { mimeType: mime[0], videoBitsPerSecond: 8e6 });
     rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
     const stopped = new Promise(r => rec.onstop = r);
-
     let done = 0, started = false;
-    for (let i = 0; i < segs.length; i++) {
-      const s = segs[i];
-      setMsg(`書き出し中… ${i + 1} / ${segs.length} 本目`);
+    for (const s of segs) {
       v.currentTime = s.start;
       await new Promise(r => { v.onseeked = r; });
       if (!started) { rec.start(1000); started = true; } else rec.resume();
@@ -401,22 +597,14 @@ byId("export").onclick = async () => {
       done += s.end - s.start;
     }
     rec.stop(); await stopped;
-    const blob = new Blob(chunks, { type: mime[0].split(";")[0] });
-    if (!blob.size) throw new Error("書き出しが空でした");
-    const url = URL.createObjectURL(blob);
-    dl.href = url; dl.download = "ピンポンカット." + mime[1];
-    dl.textContent = `⬇ 保存する（${(blob.size / 1048576).toFixed(1)}MB・${mime[1]}）`;
-    dl.style.display = "inline-block"; prog.value = 1;
-    setMsg("できました。保存ボタンを押してください。");
-  } catch (err) {
-    setMsg("書き出しに失敗しました：" + err.message + "\n（診断：形式=" + (mime && mime[0]) + " 区間=" + segs.length + "）", true);
+    return { blob: new Blob(chunks, { type: mime[0].split(";")[0] }), ext: mime[1] };
   } finally {
     try { if (rec && rec.state !== "inactive") rec.stop(); } catch (e) {}
     if (ac) ac.close();
     v.removeAttribute("src"); v.load();
-    btn.disabled = marks.length === 0;
   }
-};
+}
+
 applyMode();
 render();
 </script>

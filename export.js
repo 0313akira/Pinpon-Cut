@@ -16,7 +16,7 @@ export function fastCutSupported() {
 /**
  * @param {File} file 元の動画
  * @param {{start:number,end:number}[]} segs 残す区間（時刻順・重なりなし）
- * @param {{maxSide?:number}} opt maxSide=長い辺の上限（0 で元のまま）
+ * @param {{maxSide?:number,bitrate?:number}} opt maxSide=長い辺の上限（0 で元のまま）／bitrate=映像の細かさ（省くと高画質）
  * @param {(ratio:number)=>void} onProgress
  * @returns {Promise<Blob>} MP4
  */
@@ -48,7 +48,7 @@ export async function fastCut(file, segs, opt = {}, onProgress = () => {}) {
 
     const output = new Output({ format: new Mp4OutputFormat({ fastStart: "in-memory" }), target: new BufferTarget() });
     const vsrc = new VideoSampleSource({
-      codec, bitrate: QUALITY_HIGH, keyFrameInterval: 2,
+      codec, bitrate: opt.bitrate || QUALITY_HIGH, keyFrameInterval: 2,
       transform: { width: outW, height: outH, fit: "fill", frameRate: fps },
     });
     output.addVideoTrack(vsrc, { frameRate: fps });

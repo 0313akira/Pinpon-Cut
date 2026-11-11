@@ -160,7 +160,7 @@ footer a{color:var(--sub)}
         <h2>書き出し</h2>
         <div class="row">
           <label class="num">画質
-            <select id="quality"><option value="1920">高画質（1920）</option><option value="1280">軽さ優先（1280）</option><option value="0">元のまま</option></select></label>
+            <select id="quality"><option value="1920">高画質（1920）</option><option value="1280">軽さ優先（1280）</option><option value="0">元のまま</option><option value="960s">見本用（小さいファイル）</option></select></label>
         </div>
         <div class="row">
           <label class="num">前に足す<input type="number" id="lead" value="0" min="0" max="5" step="0.1">秒</label>
@@ -181,7 +181,7 @@ footer a{color:var(--sub)}
   </div>
 </main>
 <div class="mbar" id="mbar" style="display:none"><span id="mbarText"></span><button class="primary" id="mbarBtn">書き出しへ</button></div>
-<footer>版 2026-11-11b ／ 動画は端末の外に出ません ／ <a href="privacy.html">プライバシー</a></footer>
+<footer>版 2026-11-11c ／ 動画は端末の外に出ません ／ <a href="privacy.html">プライバシー</a></footer>
 
 <script>
 "use strict";
@@ -586,6 +586,7 @@ byId("export").onclick = async () => {
   const lead = parseFloat(byId("lead").value) || 0, tail = parseFloat(byId("tail").value) || 0;
   const segs = buildSegments(lead, tail, video.duration);
   const maxSide = parseInt(byId("quality").value, 10) || 0;
+  const bitrate = byId("quality").value.endsWith("s") ? 1.2e6 : 0; // 見本用：人に送れる大きさにする（1分で約10MB）
   let blob = null, ext = "mp4", fastErr = null;
 
   // ① 再生せずにコマを組み替える（速い・音ズレなし）
@@ -593,7 +594,7 @@ byId("export").onclick = async () => {
     setMsg("書き出し中…（再生せずに組み立てています）");
     const mod = await import("./export.js");
     if (!mod.fastCutSupported()) throw new Error("このブラウザは高速書き出しに未対応");
-    blob = await mod.fastCut(currentFile, segs, { maxSide }, r => { prog.value = r; });
+    blob = await mod.fastCut(currentFile, segs, { maxSide, bitrate }, r => { prog.value = r; });
   } catch (err) {
     fastErr = err;
     console.warn("fastCut failed", err, err && err.diag);
@@ -603,7 +604,7 @@ byId("export").onclick = async () => {
   if (!blob) {
     try {
       setMsg("高速方式が使えないため、再生しながら録画します。ラリー合計と同じ時間がかかります。画面を閉じずに待ってください。");
-      const r = await slowExport(segs, prog);
+      const r = await slowExport(segs, prog, bitrate);
       blob = r.blob; ext = r.ext;
     } catch (err) {
       track("x-録画も失敗");
@@ -642,7 +643,7 @@ byId("copyCap").onclick = async () => {
 };
 
 // 控え：再生しながら MediaRecorder で録画する（コマ落ち・音ズレが出ることがある）
-async function slowExport(segs, prog) {
+async function slowExport(segs, prog, bitrate) {
   const cands = [["video/mp4;codecs=avc1.42E01E,mp4a.40.2", "mp4"], ["video/mp4", "mp4"], ["video/webm;codecs=vp9,opus", "webm"], ["video/webm", "webm"]];
   const mime = cands.find(c => window.MediaRecorder && MediaRecorder.isTypeSupported(c[0]));
   if (!mime) throw new Error("このブラウザは動画の書き出しに対応していません");
@@ -658,7 +659,7 @@ async function slowExport(segs, prog) {
     const vs = (v.captureStream || v.mozCaptureStream).call(v);
     const stream = new MediaStream([...vs.getVideoTracks(), ...dest.stream.getAudioTracks()]);
     const chunks = [];
-    rec = new MediaRecorder(stream, { mimeType: mime[0], videoBitsPerSecond: 8e6 });
+    rec = new MediaRecorder(stream, { mimeType: mime[0], videoBitsPerSecond: bitrate || 8e6 });
     rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
     const stopped = new Promise(r => rec.onstop = r);
     let done = 0, started = false;

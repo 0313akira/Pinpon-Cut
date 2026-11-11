@@ -53,6 +53,8 @@ button:disabled{opacity:.4;cursor:default}
 .gold{background:var(--gold);border-color:var(--gold);color:#1d2a24;font-weight:700}
 #hold{width:100%;padding:22px 8px;font-size:18px;font-weight:700;background:var(--green2);color:#fff;border:0;border-radius:12px;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 #hold.on{background:var(--red)}
+.autobox{background:var(--green-soft);border-radius:10px;padding:10px;margin:8px 0}
+.auto-opt{display:block;font-size:14px;margin-top:10px;cursor:pointer}
 .hint{font-size:13px;color:var(--sub);margin:6px 0}
 ul#list{list-style:none;margin:0;padding:0;max-height:360px;overflow:auto}
 #list li{display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:8px 6px;border-top:1px solid var(--line);font-size:14px;border-radius:6px}
@@ -66,7 +68,8 @@ ul#list{list-style:none;margin:0;padding:0;max-height:360px;overflow:auto}
 label.num{font-size:14px;display:flex;gap:6px;align-items:center}
 input[type=number]{width:4.5em;font:inherit;padding:6px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--text)}
 progress{width:100%;height:14px;margin-top:8px}
-#msg{font-size:14px;margin-top:8px;white-space:pre-wrap}
+#msg,#autoMsg{white-space:pre-wrap}
+#msg{font-size:14px;margin-top:8px}
 #msg.err{color:var(--red)}
 #done{display:none;margin-top:12px;border-top:1px solid var(--line);padding-top:12px}
 textarea{width:100%;font:inherit;font-size:14px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--text);resize:vertical}
@@ -91,7 +94,8 @@ footer a{color:var(--sub)}
   <section class="card hero" id="hero">
     <h2>試合動画から、ラリーの場面だけをつないだ動画を作る</h2>
     <ul>
-      <li>ラリー中だけボタンを押す（タップでもOK）</li>
+      <li>動画を選ぶだけ。映像と音からラリーを自動で見つける</li>
+      <li>違う所は手で直せる（ラリー中だけボタンを押す方式も使える）</li>
       <li>球拾い・待ち時間が消えた動画ができる</li>
       <li>無料・登録なし。動画はこの端末から出ません</li>
     </ul>
@@ -104,6 +108,7 @@ footer a{color:var(--sub)}
       <b>📂 動画を選ぶ</b><small>スマホで撮った試合動画（横向き）</small>
       <input type="file" id="file" accept="video/*">
     </label>
+    <label class="auto-opt"><input type="checkbox" id="autoAll" checked> 完全自動（選んだら、ラリーを見つけて書き出しまで進む）</label>
     <div class="row" id="resumeRow" style="display:none"><button id="resume">前回の続きから（印を戻す）</button><span class="hint" id="resumeInfo"></span></div>
   </section>
 
@@ -123,6 +128,16 @@ footer a{color:var(--sub)}
           <select id="zoom" aria-label="バーの表示範囲"><option value="0">バー：全体</option><option value="60">バー：60秒</option><option value="20">バー：20秒</option></select>
           <button id="undo">↩ 取り消す (Z)</button>
         </div>
+        <div class="autobox">
+          <div class="row" style="margin:0">
+            <button id="auto" class="gold">🤖 自動でラリーを見つける</button>
+            <label class="num">見つける量
+              <select id="sens"><option value="lo">少なめ（確実なものだけ）</option><option value="mid" selected>ふつう</option><option value="hi">多め（取りこぼしを減らす）</option></select></label>
+          </div>
+          <progress id="autoProg" value="0" max="1" style="display:none"></progress>
+          <div class="hint" id="autoMsg" style="margin-bottom:0">サーブ前に止まる動き（映像）と打球音（音）で判定します。カメラを固定して撮った動画向けです。</div>
+          <div class="hint" id="recRow" style="display:none;margin-bottom:0">うまく切れないとき → 印を手で直してから <a href="#" id="rec">判定の記録を保存</a>（動画や音そのものは入りません。音の大きさと動きの量の数字だけ）</div>
+        </div>
         <button id="hold">🏓 ラリー中は押しっぱなし（スペースキー）</button>
         <div class="row" style="margin-bottom:0"><label class="num">操作
           <select id="mode"><option value="hold">押しっぱなし</option><option value="tap">タップで開始／終了</option></select></label>
@@ -138,14 +153,14 @@ footer a{color:var(--sub)}
         <h2>つけた印 <span id="total" class="hint"></span></h2>
         <div class="row" style="margin-top:0"><button id="playRallies">▶ ラリーだけ再生</button></div>
         <ul id="list"></ul>
-        <p class="hint" id="empty">まだ印がありません。動画を再生して、ラリー中だけボタンを押してください。</p>
+        <p class="hint" id="empty">まだ印がありません。「自動でラリーを見つける」を押すか、動画を再生してラリー中だけボタンを押してください。</p>
       </section>
 
       <section class="card" id="exportCard">
         <h2>書き出し</h2>
         <div class="row">
           <label class="num">画質
-            <select id="quality"><option value="1920">高画質（1920）</option><option value="1280">軽さ優先（1280）</option><option value="0">元のまま</option></select></label>
+            <select id="quality"><option value="1920">高画質（1920）</option><option value="1280">軽さ優先（1280）</option><option value="0">元のまま</option><option value="960s">見本用（小さいファイル）</option></select></label>
         </div>
         <div class="row">
           <label class="num">前に足す<input type="number" id="lead" value="0" min="0" max="5" step="0.1">秒</label>
@@ -166,7 +181,7 @@ footer a{color:var(--sub)}
   </div>
 </main>
 <div class="mbar" id="mbar" style="display:none"><span id="mbarText"></span><button class="primary" id="mbarBtn">書き出しへ</button></div>
-<footer>版 2026-11-04b ／ 動画は端末の外に出ません ／ <a href="privacy.html">プライバシー</a></footer>
+<footer>版 2026-11-11d ／ 動画は端末の外に出ません ／ <a href="privacy.html">プライバシー</a></footer>
 
 <script>
 "use strict";
@@ -200,6 +215,7 @@ let selectedId = null;   // バーで選んでいる区間
 let currentFile = null, fileKey = "", fileUrl = null;
 let rallyPlay = null;
 let lastBlob = null;
+let autoEnv = null, autoMotion = null, autoVideoErr = "", autoFound = [], autoToken = 0; // autoMotion: null＝まだ／false＝映像を読めなかった // 自動判定：読み取った音の強さ／やり直しの番号
 
 // ───────── 1️⃣ 動画を選ぶ ─────────
 function openFile(f) {
@@ -210,6 +226,8 @@ function openFile(f) {
   fileKey = "pc:" + f.name + ":" + f.size;
   video.src = fileUrl;
   marks = []; history = []; holdStart = null; selectedId = null;
+  autoEnv = null; autoMotion = null; autoVideoErr = ""; autoFound = []; autoToken++; setAutoBusy(false); byId("recRow").style.display = "none";
+  byId("autoMsg").textContent = "サーブ前に止まる動き（映像）と打球音（音）で判定します。カメラを固定して撮った動画向けです。";
   byId("fileName").textContent = "📂 " + f.name;
   byId("editor").style.display = "";
   byId("hero").querySelectorAll("h2,ul,.example,.pick").forEach(n => n.style.display = "none");
@@ -218,6 +236,8 @@ function openFile(f) {
   byId("done").style.display = "none"; byId("msg").textContent = "";
   showResume(); render();
   track("1-動画を選んだ");
+  // 完全自動：前回の印が残っている動画では勝手に上書きしない
+  if (byId("autoAll").checked && !saved()) runAuto(true);
 }
 byId("file").addEventListener("change", e => openFile(e.target.files[0]));
 byId("file2").addEventListener("change", e => openFile(e.target.files[0]));
@@ -266,6 +286,7 @@ function undoLast() {
   const h = history.pop();
   if (!h) return;
   if (h.type === "add") marks = marks.filter(m => m.id !== h.id);
+  else if (h.type === "replace") marks = h.prev;
   else if (h.type === "del") { marks.push(h.mark); marks.sort((x, y) => x.start - y.start); }
   else if (h.type === "edit") { const m = marks.find(x => x.id === h.id); if (m) { m.start = h.prev.start; m.end = h.prev.end; } marks.sort((x, y) => x.start - y.start); }
   commit();
@@ -289,6 +310,80 @@ function deleteMark(id) {
   if (selectedId === id) selectedId = null;
   commit();
 }
+
+// ───────── 2️⃣′ ラリーを自動で見つける（音で判定。中身は detect.js） ─────────
+function setAutoBusy(on) {
+  byId("auto").disabled = on;
+  byId("autoProg").style.display = on ? "block" : "none";
+}
+async function runAuto(thenExport) {
+  if (!currentFile || exporting) return;
+  const token = ++autoToken, msg = byId("autoMsg");
+  const stale = () => token !== autoToken; // 別の動画を選んだ・やり直した
+  setAutoBusy(true); byId("autoProg").value = 0;
+  msg.textContent = "映像と音からラリーを探しています…（動画の長さの数分の1ほどかかります）";
+  try {
+    const mod = await import("./detect.js");
+    if (!autoEnv) {
+      const env = await mod.analyzeAudio(currentFile, r => { if (!stale()) byId("autoProg").value = r * 0.1; }, stale);
+      if (!env || stale()) return;
+      autoEnv = env;
+    }
+    if (autoMotion === null) {
+      try {
+        const motion = await mod.analyzeVideo(currentFile, r => { if (!stale()) byId("autoProg").value = 0.1 + r * 0.9; }, stale);
+        if (!motion || stale()) return;
+        autoMotion = motion;
+      } catch (err) { // 映像を読めない端末では、音だけの判定に切り替える
+        if (stale()) return;
+        console.warn("video analysis failed", err);
+        autoMotion = false; autoVideoErr = (err && err.message) || String(err);
+        track("x-映像を読めず音だけで判定");
+      }
+    }
+    const dur = video.duration || Infinity, sens = byId("sens").value;
+    const found = autoMotion ? mod.findRalliesAV(autoMotion, autoEnv, sens, dur) : mod.findRallies(autoEnv.mid, sens, dur);
+    const note = autoMotion ? "" : "\n※ 映像を読み取れなかったため、音だけで判定しました（会場によっては外れます）：" + autoVideoErr;
+    autoFound = found; byId("recRow").style.display = "";
+    if (!found.length) {
+      msg.textContent = "ラリーが見つかりませんでした。「多め」にするか、下のボタンで手で印をつけてください。" + note;
+      track("x-自動で見つからなかった"); return;
+    }
+    if (holdStart !== null) handleHoldEnd();
+    history.push({ type: "replace", prev: marks });
+    marks = found.map(r => ({ id: nextId++, start: r.start, end: r.end }));
+    selectedId = null;
+    if (!exporting) { byId("done").style.display = "none"; byId("prog").style.display = "none"; setMsg(""); } // 前の書き出し結果は古くなる
+    byId("hero").style.display = "none";
+    commit();
+    const sum = marks.reduce((s, m) => s + m.end - m.start, 0);
+    msg.textContent = `${marks.length}本見つけました（合計 ${formatTime(sum)}）。違う所はバーや一覧で直せます。「取り消す」で元に戻ります。` + note;
+    track("a-自動で見つけた");
+    if (thenExport) { setAutoBusy(false); byId("export").click(); }
+  } catch (err) {
+    if (stale()) return;
+    console.warn("auto detect failed", err);
+    msg.textContent = "自動判定できませんでした：" + ((err && err.message) || err) + "\n下のボタンで手で印をつけられます。";
+    track("x-自動判定できなかった");
+  } finally {
+    if (!stale()) setAutoBusy(false);
+  }
+}
+byId("auto").onclick = () => runAuto(false);
+// 判定の記録：音の大きさの列・自動で見つけた区間・いまの印（手で直したあと＝正解）を 1 つのファイルにする
+byId("rec").onclick = async e => {
+  e.preventDefault(); if (!autoEnv) return;
+  const mod = await import("./detect.js");
+  const text = mod.packRecord(autoEnv, { duration: video.duration, sens: byId("sens").value, ua: navigator.userAgent,
+    found: autoFound.map(r => [r.start, r.end, r.hits]),
+    motionFps: mod.MOTION_FPS, motion: autoMotion ? Array.from(autoMotion, v => Math.round(v * 10000)) : null, marks: marks.map(m => [m.start, m.end]) });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([text], { type: "application/json" })); a.download = "pinponcut-kiroku.json";
+  a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+};
+byId("sens").onchange = () => { if (autoEnv) runAuto(false); }; // 音は読み取り済みなのですぐ出る
+try { byId("autoAll").checked = localStorage.getItem("pc:autoAll") !== "0"; } catch (e) {}
+byId("autoAll").onchange = e => { try { localStorage.setItem("pc:autoAll", e.target.checked ? "1" : "0"); } catch (er) {} };
 
 // ───────── バー（表示範囲・ドラッグ編集） ─────────
 const barEl = byId("bar");
@@ -506,6 +601,7 @@ byId("export").onclick = async () => {
   const lead = parseFloat(byId("lead").value) || 0, tail = parseFloat(byId("tail").value) || 0;
   const segs = buildSegments(lead, tail, video.duration);
   const maxSide = parseInt(byId("quality").value, 10) || 0;
+  const bitrate = byId("quality").value.endsWith("s") ? 1.2e6 : 0; // 見本用：人に送れる大きさにする（1分で約10MB）
   let blob = null, ext = "mp4", fastErr = null;
 
   // ① 再生せずにコマを組み替える（速い・音ズレなし）
@@ -513,7 +609,7 @@ byId("export").onclick = async () => {
     setMsg("書き出し中…（再生せずに組み立てています）");
     const mod = await import("./export.js");
     if (!mod.fastCutSupported()) throw new Error("このブラウザは高速書き出しに未対応");
-    blob = await mod.fastCut(currentFile, segs, { maxSide }, r => { prog.value = r; });
+    blob = await mod.fastCut(currentFile, segs, { maxSide, bitrate }, r => { prog.value = r; });
   } catch (err) {
     fastErr = err;
     console.warn("fastCut failed", err, err && err.diag);
@@ -523,7 +619,7 @@ byId("export").onclick = async () => {
   if (!blob) {
     try {
       setMsg("高速方式が使えないため、再生しながら録画します。ラリー合計と同じ時間がかかります。画面を閉じずに待ってください。");
-      const r = await slowExport(segs, prog);
+      const r = await slowExport(segs, prog, bitrate);
       blob = r.blob; ext = r.ext;
     } catch (err) {
       track("x-録画も失敗");
@@ -562,7 +658,7 @@ byId("copyCap").onclick = async () => {
 };
 
 // 控え：再生しながら MediaRecorder で録画する（コマ落ち・音ズレが出ることがある）
-async function slowExport(segs, prog) {
+async function slowExport(segs, prog, bitrate) {
   const cands = [["video/mp4;codecs=avc1.42E01E,mp4a.40.2", "mp4"], ["video/mp4", "mp4"], ["video/webm;codecs=vp9,opus", "webm"], ["video/webm", "webm"]];
   const mime = cands.find(c => window.MediaRecorder && MediaRecorder.isTypeSupported(c[0]));
   if (!mime) throw new Error("このブラウザは動画の書き出しに対応していません");
@@ -578,7 +674,7 @@ async function slowExport(segs, prog) {
     const vs = (v.captureStream || v.mozCaptureStream).call(v);
     const stream = new MediaStream([...vs.getVideoTracks(), ...dest.stream.getAudioTracks()]);
     const chunks = [];
-    rec = new MediaRecorder(stream, { mimeType: mime[0], videoBitsPerSecond: 8e6 });
+    rec = new MediaRecorder(stream, { mimeType: mime[0], videoBitsPerSecond: bitrate || 8e6 });
     rec.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
     const stopped = new Promise(r => rec.onstop = r);
     let done = 0, started = false;

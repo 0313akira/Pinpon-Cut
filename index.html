@@ -136,6 +136,7 @@ footer a{color:var(--sub)}
           </div>
           <progress id="autoProg" value="0" max="1" style="display:none"></progress>
           <div class="hint" id="autoMsg" style="margin-bottom:0">打球音（カッ、コッ）の続き方で判定します。音の入った動画で使えます。</div>
+          <div class="hint" id="recRow" style="display:none;margin-bottom:0">うまく切れないとき → 印を手で直してから <a href="#" id="rec">判定の記録を保存</a>（動画や音そのものは入りません。音の大きさの数字だけ）</div>
         </div>
         <button id="hold">🏓 ラリー中は押しっぱなし（スペースキー）</button>
         <div class="row" style="margin-bottom:0"><label class="num">操作
@@ -180,7 +181,7 @@ footer a{color:var(--sub)}
   </div>
 </main>
 <div class="mbar" id="mbar" style="display:none"><span id="mbarText"></span><button class="primary" id="mbarBtn">書き出しへ</button></div>
-<footer>版 2026-11-11a ／ 動画は端末の外に出ません ／ <a href="privacy.html">プライバシー</a></footer>
+<footer>版 2026-11-11b ／ 動画は端末の外に出ません ／ <a href="privacy.html">プライバシー</a></footer>
 
 <script>
 "use strict";
@@ -214,7 +215,7 @@ let selectedId = null;   // バーで選んでいる区間
 let currentFile = null, fileKey = "", fileUrl = null;
 let rallyPlay = null;
 let lastBlob = null;
-let autoEnv = null, autoToken = 0; // 自動判定：読み取った音の強さ／やり直しの番号
+let autoEnv = null, autoFound = [], autoToken = 0; // 自動判定：読み取った音の強さ／やり直しの番号
 
 // ───────── 1️⃣ 動画を選ぶ ─────────
 function openFile(f) {
@@ -225,7 +226,7 @@ function openFile(f) {
   fileKey = "pc:" + f.name + ":" + f.size;
   video.src = fileUrl;
   marks = []; history = []; holdStart = null; selectedId = null;
-  autoEnv = null; autoToken++; setAutoBusy(false);
+  autoEnv = null; autoFound = []; autoToken++; setAutoBusy(false); byId("recRow").style.display = "none";
   byId("autoMsg").textContent = "打球音（カッ、コッ）の続き方で判定します。音の入った動画で使えます。";
   byId("fileName").textContent = "📂 " + f.name;
   byId("editor").style.display = "";
@@ -328,7 +329,8 @@ async function runAuto(thenExport) {
       if (!env || stale()) return;
       autoEnv = env;
     }
-    const found = mod.findRallies(autoEnv, byId("sens").value, video.duration || Infinity);
+    const found = mod.findRallies(autoEnv.mid, byId("sens").value, video.duration || Infinity);
+    autoFound = found; byId("recRow").style.display = "";
     if (!found.length) {
       msg.textContent = "ラリーらしい打球音が見つかりませんでした。「多め」にするか、下のボタンで手で印をつけてください。";
       track("x-自動で見つからなかった"); return;
@@ -354,6 +356,16 @@ async function runAuto(thenExport) {
   }
 }
 byId("auto").onclick = () => runAuto(false);
+// 判定の記録：音の大きさの列・自動で見つけた区間・いまの印（手で直したあと＝正解）を 1 つのファイルにする
+byId("rec").onclick = async e => {
+  e.preventDefault(); if (!autoEnv) return;
+  const mod = await import("./detect.js");
+  const text = mod.packRecord(autoEnv, { duration: video.duration, sens: byId("sens").value, ua: navigator.userAgent,
+    found: autoFound.map(r => [r.start, r.end, r.hits]), marks: marks.map(m => [m.start, m.end]) });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([text], { type: "application/json" })); a.download = "pinponcut-kiroku.json";
+  a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+};
 byId("sens").onchange = () => { if (autoEnv) runAuto(false); }; // 音は読み取り済みなのですぐ出る
 try { byId("autoAll").checked = localStorage.getItem("pc:autoAll") !== "0"; } catch (e) {}
 byId("autoAll").onchange = e => { try { localStorage.setItem("pc:autoAll", e.target.checked ? "1" : "0"); } catch (er) {} };

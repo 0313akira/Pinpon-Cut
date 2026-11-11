@@ -94,7 +94,7 @@ footer a{color:var(--sub)}
   <section class="card hero" id="hero">
     <h2>試合動画から、ラリーの場面だけをつないだ動画を作る</h2>
     <ul>
-      <li>動画を選ぶだけ。打球音からラリーを自動で見つける</li>
+      <li>動画を選ぶだけ。映像と音からラリーを自動で見つける</li>
       <li>違う所は手で直せる（ラリー中だけボタンを押す方式も使える）</li>
       <li>球拾い・待ち時間が消えた動画ができる</li>
       <li>無料・登録なし。動画はこの端末から出ません</li>
@@ -135,8 +135,8 @@ footer a{color:var(--sub)}
               <select id="sens"><option value="lo">少なめ（確実なものだけ）</option><option value="mid" selected>ふつう</option><option value="hi">多め（取りこぼしを減らす）</option></select></label>
           </div>
           <progress id="autoProg" value="0" max="1" style="display:none"></progress>
-          <div class="hint" id="autoMsg" style="margin-bottom:0">打球音（カッ、コッ）の続き方で判定します。音の入った動画で使えます。</div>
-          <div class="hint" id="recRow" style="display:none;margin-bottom:0">うまく切れないとき → 印を手で直してから <a href="#" id="rec">判定の記録を保存</a>（動画や音そのものは入りません。音の大きさの数字だけ）</div>
+          <div class="hint" id="autoMsg" style="margin-bottom:0">サーブ前に止まる動き（映像）と打球音（音）で判定します。カメラを固定して撮った動画向けです。</div>
+          <div class="hint" id="recRow" style="display:none;margin-bottom:0">うまく切れないとき → 印を手で直してから <a href="#" id="rec">判定の記録を保存</a>（動画や音そのものは入りません。音の大きさと動きの量の数字だけ）</div>
         </div>
         <button id="hold">🏓 ラリー中は押しっぱなし（スペースキー）</button>
         <div class="row" style="margin-bottom:0"><label class="num">操作
@@ -181,7 +181,7 @@ footer a{color:var(--sub)}
   </div>
 </main>
 <div class="mbar" id="mbar" style="display:none"><span id="mbarText"></span><button class="primary" id="mbarBtn">書き出しへ</button></div>
-<footer>版 2026-11-11c ／ 動画は端末の外に出ません ／ <a href="privacy.html">プライバシー</a></footer>
+<footer>版 2026-11-11d ／ 動画は端末の外に出ません ／ <a href="privacy.html">プライバシー</a></footer>
 
 <script>
 "use strict";
@@ -215,7 +215,7 @@ let selectedId = null;   // バーで選んでいる区間
 let currentFile = null, fileKey = "", fileUrl = null;
 let rallyPlay = null;
 let lastBlob = null;
-let autoEnv = null, autoFound = [], autoToken = 0; // 自動判定：読み取った音の強さ／やり直しの番号
+let autoEnv = null, autoMotion = null, autoVideoErr = "", autoFound = [], autoToken = 0; // autoMotion: null＝まだ／false＝映像を読めなかった // 自動判定：読み取った音の強さ／やり直しの番号
 
 // ───────── 1️⃣ 動画を選ぶ ─────────
 function openFile(f) {
@@ -226,8 +226,8 @@ function openFile(f) {
   fileKey = "pc:" + f.name + ":" + f.size;
   video.src = fileUrl;
   marks = []; history = []; holdStart = null; selectedId = null;
-  autoEnv = null; autoFound = []; autoToken++; setAutoBusy(false); byId("recRow").style.display = "none";
-  byId("autoMsg").textContent = "打球音（カッ、コッ）の続き方で判定します。音の入った動画で使えます。";
+  autoEnv = null; autoMotion = null; autoVideoErr = ""; autoFound = []; autoToken++; setAutoBusy(false); byId("recRow").style.display = "none";
+  byId("autoMsg").textContent = "サーブ前に止まる動き（映像）と打球音（音）で判定します。カメラを固定して撮った動画向けです。";
   byId("fileName").textContent = "📂 " + f.name;
   byId("editor").style.display = "";
   byId("hero").querySelectorAll("h2,ul,.example,.pick").forEach(n => n.style.display = "none");
@@ -321,18 +321,32 @@ async function runAuto(thenExport) {
   const token = ++autoToken, msg = byId("autoMsg");
   const stale = () => token !== autoToken; // 別の動画を選んだ・やり直した
   setAutoBusy(true); byId("autoProg").value = 0;
-  msg.textContent = "音からラリーを探しています…";
+  msg.textContent = "映像と音からラリーを探しています…（動画の長さの数分の1ほどかかります）";
   try {
     const mod = await import("./detect.js");
     if (!autoEnv) {
-      const env = await mod.analyzeAudio(currentFile, r => { if (!stale()) byId("autoProg").value = r; }, stale);
+      const env = await mod.analyzeAudio(currentFile, r => { if (!stale()) byId("autoProg").value = r * 0.1; }, stale);
       if (!env || stale()) return;
       autoEnv = env;
     }
-    const found = mod.findRallies(autoEnv.mid, byId("sens").value, video.duration || Infinity);
+    if (autoMotion === null) {
+      try {
+        const motion = await mod.analyzeVideo(currentFile, r => { if (!stale()) byId("autoProg").value = 0.1 + r * 0.9; }, stale);
+        if (!motion || stale()) return;
+        autoMotion = motion;
+      } catch (err) { // 映像を読めない端末では、音だけの判定に切り替える
+        if (stale()) return;
+        console.warn("video analysis failed", err);
+        autoMotion = false; autoVideoErr = (err && err.message) || String(err);
+        track("x-映像を読めず音だけで判定");
+      }
+    }
+    const dur = video.duration || Infinity, sens = byId("sens").value;
+    const found = autoMotion ? mod.findRalliesAV(autoMotion, autoEnv, sens, dur) : mod.findRallies(autoEnv.mid, sens, dur);
+    const note = autoMotion ? "" : "\n※ 映像を読み取れなかったため、音だけで判定しました（会場によっては外れます）：" + autoVideoErr;
     autoFound = found; byId("recRow").style.display = "";
     if (!found.length) {
-      msg.textContent = "ラリーらしい打球音が見つかりませんでした。「多め」にするか、下のボタンで手で印をつけてください。";
+      msg.textContent = "ラリーが見つかりませんでした。「多め」にするか、下のボタンで手で印をつけてください。" + note;
       track("x-自動で見つからなかった"); return;
     }
     if (holdStart !== null) handleHoldEnd();
@@ -343,7 +357,7 @@ async function runAuto(thenExport) {
     byId("hero").style.display = "none";
     commit();
     const sum = marks.reduce((s, m) => s + m.end - m.start, 0);
-    msg.textContent = `${marks.length}本見つけました（合計 ${formatTime(sum)}）。違う所はバーや一覧で直せます。「取り消す」で元に戻ります。`;
+    msg.textContent = `${marks.length}本見つけました（合計 ${formatTime(sum)}）。違う所はバーや一覧で直せます。「取り消す」で元に戻ります。` + note;
     track("a-自動で見つけた");
     if (thenExport) { setAutoBusy(false); byId("export").click(); }
   } catch (err) {
@@ -361,7 +375,8 @@ byId("rec").onclick = async e => {
   e.preventDefault(); if (!autoEnv) return;
   const mod = await import("./detect.js");
   const text = mod.packRecord(autoEnv, { duration: video.duration, sens: byId("sens").value, ua: navigator.userAgent,
-    found: autoFound.map(r => [r.start, r.end, r.hits]), marks: marks.map(m => [m.start, m.end]) });
+    found: autoFound.map(r => [r.start, r.end, r.hits]),
+    motionFps: mod.MOTION_FPS, motion: autoMotion ? Array.from(autoMotion, v => Math.round(v * 10000)) : null, marks: marks.map(m => [m.start, m.end]) });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([text], { type: "application/json" })); a.download = "pinponcut-kiroku.json";
   a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 10000);

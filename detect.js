@@ -4,7 +4,7 @@
 //   2) 鋭く立ち上がってすぐ消える山＝打球音の候補を拾う
 //   3) 間隔の近い候補をまとめ、打球数の多いまとまりをラリーにする
 // 動画は端末の外に出さない。映像は見ていない（音だけ）。
-import { Input, BlobSource, ALL_FORMATS, AudioSampleSink, EncodedPacketSink } from "./vendor/mediabunny-1.61.6.min.js";
+import { Input, BlobSource, ALL_FORMATS, AudioSampleSink, EncodedPacketSink, CanvasSink } from "./vendor/mediabunny-1.61.6.min.js";
 
 export const RATE = 200;      // 音の強さを 1 秒に何個とるか
 const CUTOFF_HZ = 1500;       // これより低い音を弱める
@@ -243,5 +243,127 @@ export function findRallies(env, sensitivity = "mid", duration = Infinity) {
     else { flush(); group = [hits[i]]; }
   }
   flush();
+  return rallies;
+}
+
+// ───────── 映像＋音での判定 ─────────
+// 音だけでは、ほかの台や足音と区別できない会場がある。映像だけでは、球が小さすぎて追えない。そこで役割を分ける：
+//   始まり＝映像。サーブの前は 2 人とも構えて止まる。「止まる → 動き出す」をラリーの始まりにする
+//   終わり＝音。ただし映像で絞った区間の中だけで、最後の打球音を探す
+//   打球音が 1 つも無い区間は捨てる（止まって動いただけで、ラリーではない）
+export const MOTION_FPS = 10;
+const MOTION_W = 160, MOTION_H = 90, MOTION_DIFF = 12; // 縮めた映像で、明るさが 12 以上変わった画素を「動いた」と数える
+
+/**
+ * 映像を 1 秒に 10 コマだけ見て、コマごとの「動いた画素の割合」を返す
+ * @returns {Promise<Float32Array|null>}
+ */
+export async function analyzeVideo(file, onProgress = () => {}, isCancelled = () => false) {
+  const input = new Input({ source: new BlobSource(file), formats: ALL_FORMATS });
+  try {
+    const track = await input.getPrimaryVideoTrack();
+    if (!track) throw new Error("映像が見つかりません");
+    if (!(await track.canDecode())) throw new Error("この端末では映像（" + track.codec + "）を読み取れません");
+    const duration = (await track.computeDuration()) || 1;
+    const count = Math.floor(duration * MOTION_FPS);
+    const sink = new CanvasSink(track, { width: MOTION_W, height: MOTION_H, fit: "fill", poolSize: 1 });
+    const times = (function* () { for (let i = 0; i < count; i++) yield i / MOTION_FPS; })();
+    const motion = new Float32Array(count), size = MOTION_W * MOTION_H;
+    let prev = new Uint8Array(size), cur = new Uint8Array(size), i = 0, has = false, lastYield = performance.now();
+    for await (const frame of sink.canvasesAtTimestamps(times)) {
+      if (frame) {
+        const px = frame.canvas.getContext("2d", { willReadFrequently: true }).getImageData(0, 0, MOTION_W, MOTION_H).data;
+        let moved = 0;
+        for (let p = 0, q = 0; p < size; p++, q += 4) {
+          const g = (px[q] + px[q + 1] + px[q + 2]) / 3 | 0;
+          cur[p] = g;
+          if (has && Math.abs(g - prev[p]) > MOTION_DIFF) moved++;
+        }
+        motion[i] = moved / size; has = true;
+        const swap = prev; prev = cur; cur = swap;
+      }
+      i++;
+      if (performance.now() - lastYield > 100) {
+        onProgress(Math.min(1, i / count));
+        await new Promise(r => setTimeout(r)); lastYield = performance.now();
+        if (isCancelled()) return null;
+      }
+    }
+    return motion;
+  } finally {
+    try { input.dispose && input.dispose(); } catch (e) {}
+  }
+}
+
+// 感度ごとの基準。hiLo＝高い音が低い音よりどれだけ強ければ打球音とみなすか（足音は低い音も一緒に鳴る）
+//                 gap＝打球音がこの秒数とぎれたらラリー終わり
+const AV_PRESETS = {
+  lo:  { hiLo: -1, gap: 1.5 },
+  mid: { hiLo: -3, gap: 1.8 },
+  hi:  { hiLo: -5, gap: 2.5 },
+};
+const STILL_RATIO = 0.2;   // 動きの量が「よく動いている時（上位 1/4 の境目）」の 2 割より小さければ「止まっている」
+const STILL_MIN = 0.5;     // これ以上続いたら「構えて止まった」とみなす（秒）
+const FIRST_CLICK = 5;     // 動き出してからこの秒数以内に打球音が無ければラリーではない
+const AV_PAD_BEFORE = 0.5, AV_PAD_AFTER = 0.3;
+
+// 打球音（高い音が主体の、短く鋭い音）の時刻を拾う
+export function findClicks(env, hiLoMin) {
+  const n = env.hi.length, hi = new Float32Array(n), lo = new Float32Array(n);
+  for (let i = 0; i < n; i++) { hi[i] = 10 * Math.log10(env.hi[i] + 1e-12); lo[i] = 10 * Math.log10(Math.max(1e-12, env.all[i] - env.mid[i])); }
+  const loud = Array.from(hi).sort((a, b) => a - b)[Math.floor(n * 0.9)] + 4; // その動画の中で十分大きい音だけ
+  const clicks = [], before = new Array(12);
+  for (let i = 14; i < n - 17; i++) {
+    const v = hi[i];
+    if (v < loud) continue;
+    let isPeak = true;
+    for (let k = 1; k <= 16 && isPeak; k++) if (hi[i - k] > v || hi[i + k] >= v) isPeak = false;
+    if (!isPeak) continue;
+    for (let k = 0; k < 12; k++) before[k] = hi[i - 13 + k];
+    before.sort((a, b) => a - b);
+    if (v - before[6] < 12) continue;                                 // 直前より 12dB 以上、急に大きくなった
+    if (v - Math.max(lo[i - 1], lo[i], lo[i + 1], lo[i + 2]) < hiLoMin) continue; // 低い音が勝っている＝足音など
+    clicks.push(i / RATE);
+  }
+  return clicks;
+}
+
+/**
+ * @param {Float32Array} motion analyzeVideo の結果
+ * @param {{mid:Float32Array,all:Float32Array,hi:Float32Array}} env analyzeAudio の結果
+ * @returns {{start:number,end:number,hits:number}[]}
+ */
+export function findRalliesAV(motion, env, sensitivity = "mid", duration = Infinity) {
+  const p = AV_PRESETS[sensitivity] || AV_PRESETS.mid;
+  const n = motion.length;
+  if (n < 20) return [];
+  // 1 コマだけの乱れをならす（前後 3 コマの真ん中の値）
+  const m = new Float32Array(n);
+  for (let i = 0; i < n; i++) { const a = motion[Math.max(0, i - 1)], b = motion[i], c = motion[Math.min(n - 1, i + 1)]; m[i] = Math.max(Math.min(a, b), Math.min(Math.max(a, b), c)); }
+  const limit = Array.from(m).sort((a, b) => a - b)[Math.floor(n * 0.75)] * STILL_RATIO;
+  // 止まっている区間（コマ番号の [始め, 終わり)）
+  const stills = [];
+  for (let i = 0; i < n;) {
+    if (m[i] >= limit) { i++; continue; }
+    let j = i; while (j < n && m[j] < limit) j++;
+    if ((j - i) / MOTION_FPS >= STILL_MIN) stills.push([i, j]);
+    i = j;
+  }
+  const clicks = findClicks(env, p.hiLo);
+  const rallies = [];
+  stills.forEach(([, moveAt], k) => {
+    if (moveAt >= n) return;
+    const t0 = moveAt / MOTION_FPS;                                   // 動き出した時刻
+    const until = k + 1 < stills.length ? stills[k + 1][0] / MOTION_FPS : duration; // 次に止まるまで
+    let last = null, hits = 0;
+    for (const t of clicks) {
+      if (t < t0 - 0.3) continue;
+      if (t > until) break;
+      if (last === null ? t - t0 > FIRST_CLICK : t - last > p.gap) break;
+      last = t; hits++;
+    }
+    if (last === null) return;
+    rallies.push({ start: Math.max(0, t0 - AV_PAD_BEFORE), end: Math.min(duration, last + AV_PAD_AFTER), hits });
+  });
   return rallies;
 }

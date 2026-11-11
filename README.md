@@ -17,6 +17,8 @@
 | `export.js` | 高速書き出し。書き出しを押したときだけ読み込む |
 | `vendor/mediabunny-1.61.6.min.js` | MP4 の分解・組み立て部品（MPL-2.0, `vendor/mediabunny-LICENSE.txt`） |
 | `privacy.html` | プライバシーポリシー |
+| `colab/pinpon_cut.ipynb` | Google Colab 版（Python）。判定はブラウザ版と同じ。グラフで判定の中身を見られる。基準を試すのに向く |
+| `colab/build_nb.py` | 上のノートを作るスクリプト。ノートを直すときはこちらを直して `python3 build_nb.py` |
 
 ## 書き出しのしくみ
 1. **高速方式（通常）**：WebCodecs で必要なコマだけ読み取り→作り直し→MP4 に組み立て。再生しないので速い（60秒の動画で数秒）
@@ -25,6 +27,10 @@
    - 区間ごとに読み取り器を作り直す
    - 失敗時は診断文字列（どの段階・何本目・形式）をコンソールとエラー文に出す
 2. **控え**：高速方式が使えないブラウザでは、再生しながら MediaRecorder で録画（実時間ぶんかかる）
+
+## Colab 版
+[Colab で開く](https://colab.research.google.com/github/0313akira/Pinpon-Cut/blob/claude/beautiful-galileo-xp84l5/colab/pinpon_cut.ipynb) → 上から順に ▶ を押す。動画を選ぶ → 自動判定（グラフつき）→ 書き出し → ダウンロード。
+ブラウザ版と違い、動画は Google のサーバー（自分の Colab の作業場所）に上がる。いまの判定は GPU を使わない。
 
 ## 自動判定のしくみ（`detect.js`）
 映像と音を組み合わせる。音だけでは、台がたくさんある会場でほかの台や足音と区別できない。映像だけでは、球が小さくぶれていて追えない（実際の試合動画で、ラリー中のコマの 3% しか拾えなかった）。そこで役割を分ける。
